@@ -41,6 +41,11 @@ export class HomePage {
     return card.getByRole('link', { name: 'Book now', exact: true });
   }
 
+  // A card is identified by the room id in its "Book now" href (/reservation/{id}?checkin=...).
+  roomCard(roomId: number): Locator {
+    return this.roomCards.filter({ has: this.page.locator(`a[href^="/reservation/${roomId}?"]`) });
+  }
+
   // Rooms are fetched after the page loads, and locator.all() does not wait, so wait for the first card.
   async waitForRooms() {
     await this.roomCards.first().waitFor();

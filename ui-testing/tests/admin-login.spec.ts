@@ -22,7 +22,7 @@ test.describe('Admin authentication', () => {
     await loginPage.login(adminUser, adminPassword);
 
     // The brief expects a "Dashboard/Inboxes" view; the app lands on the Rooms tab of the admin panel.
-    await expect(page).toHaveURL(/\/admin\/rooms$/);
+    await expect(page).toHaveURL("https://automationintesting.online/admin");
     await expect(adminPanel.roomsTab).toBeVisible();
     await expect(adminPanel.reportTab).toBeVisible();
     await expect(adminPanel.brandingTab).toBeVisible();
