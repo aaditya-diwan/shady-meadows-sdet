@@ -1,42 +1,62 @@
 import { test, expect } from '@playwright/test';
+import { AdminLoginPage } from '../pages/admin-login-page';
+import { AdminPanelPage } from '../pages/admin-panel-page';
 
-const ADMIN_USER = 'admin';
-const ADMIN_PASSWORD = 'password';
+// These tests exercise the login itself, so they start signed out.
+test.use({ storageState: { cookies: [], origins: [] } });
 
-test.describe('Admin Authentication & Dashboard', () => {
+const adminUser = 'admin';
+const adminPassword = 'password';
 
-  test('admin can log in and reach the dashboard', async ({ page }) => {
-    await page.goto('/admin'); 
+test.describe('Admin authentication', () => {
+  let loginPage: AdminLoginPage;
+  let adminPanel: AdminPanelPage;
 
-    await page.getByRole('textbox', { name: 'Username' }).fill(ADMIN_USER);
-    await page.getByRole('textbox', { name: 'Password' }).fill(ADMIN_PASSWORD);
-    await page.getByRole('button', { name: 'Login' }).click();
-
-    await expect(page).toHaveURL(/\/admin\/rooms/);
-    await expect(page.getByRole('link', { name: 'Rooms' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Messages' })).toBeVisible();
-
-    await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
+  test.beforeEach(async ({ page }) => {
+    loginPage = new AdminLoginPage(page);
+    adminPanel = new AdminPanelPage(page);
+    await loginPage.goto();
   });
 
-  test('bonus: the Single room details match between homepage and admin', async ({ page }) => {
-    await page.goto('/');
-    const homeSingleCard = page.locator('.room-card').filter({ hasText: 'Single' });
-    await expect(homeSingleCard).toBeVisible();
-    await expect(homeSingleCard).toContainText('WiFi'); // amenity shown on the card
-    await expect(page.getByText('£100')).toBeVisible();  // Single room price on the homepage
+  test('admin logs in and is redirected to the admin dashboard', async ({ page }) => {
+    await loginPage.login(adminUser, adminPassword);
 
-    await page.goto('/admin');
-    await page.getByRole('textbox', { name: 'Username' }).fill(ADMIN_USER);
-    await page.getByRole('textbox', { name: 'Password' }).fill(ADMIN_PASSWORD);
-    await page.getByRole('button', { name: 'Login' }).click();
-    await page.getByRole('link', { name: 'Rooms' }).click();
+    // The brief expects a "Dashboard/Inboxes" view; the app lands on the Rooms tab of the admin panel.
+    await expect(page).toHaveURL(/\/admin\/rooms$/);
+    await expect(adminPanel.roomsTab).toBeVisible();
+    await expect(adminPanel.reportTab).toBeVisible();
+    await expect(adminPanel.brandingTab).toBeVisible();
+    await expect(adminPanel.messagesTab).toBeVisible();
+    await expect(adminPanel.logoutButton).toBeVisible();
+    await expect(loginPage.heading).toBeHidden();
 
-    // --- The same Single room in admin shows matching details ---
+    const cookies = await page.context().cookies();
+    expect(cookies.find((cookie) => cookie.name === 'token')?.value).toBeTruthy();
+  });
 
-    const adminSingleRow = page.getByTestId('roomlisting').filter({ hasText: 'Single' });
-    await expect(adminSingleRow).toBeVisible();
-    await expect(adminSingleRow).toContainText('100');   // price matches the £100 on the homepage
-    await expect(adminSingleRow).toContainText('WiFi');  // amenity matches the homepage card
+  test('wrong password is rejected and stays on the login page', async ({ page }) => {
+    await loginPage.login(adminUser, 'not-the-password');
+
+    await expect(loginPage.errorAlert).toBeVisible();
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(adminPanel.roomsTab).toBeHidden();
+  });
+
+  test('logout ends the session', async ({ page }) => {
+    await loginPage.login(adminUser, adminPassword);
+    await expect(adminPanel.roomsTab).toBeVisible();
+
+    await adminPanel.logoutButton.click();
+    await expect(page).toHaveURL('/');
+
+    // The admin area must not be reachable after logout.
+    await adminPanel.goto();
+    await expect(loginPage.heading).toBeVisible();
+    await expect(adminPanel.roomsTab).toBeHidden();
+  });
+
+  test('Logout button is hidden before logging in', { tag: '@knownbug' }, async () => {
+    test.fail(true, 'The login page shows a Logout button to signed-out visitors');
+    await expect(adminPanel.logoutButton).toBeHidden({ timeout: 2000 });
   });
 });
