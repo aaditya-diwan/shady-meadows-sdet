@@ -1,0 +1,23 @@
+{
+    "name": "#string",
+    "logoUrl": "#string",
+    "description": "#string? _.length > 0",
+    "directions": "#string? _.length > 0",
+    "map": {
+      "latitude": "#number? _ >= -90 && _ <= 90",
+      "longitude": "#number? _ >= -180 && _ <= 180"
+    },
+    "address": {
+      "line1": "#string",
+      "line2": "##string",
+      "postTown": "#string",
+      "county": "##string",
+      "postCode": "#string"
+    },
+    "contact": {
+      "name": "#string",
+      "email": "#string",
+      "phone": "#string"
+    }
+  }
+  
