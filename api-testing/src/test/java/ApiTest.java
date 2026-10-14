@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 // Suite runner: runs every .feature on the classpath in parallel. This is what `mvn test` and CI execute.
-// Per-area *Runner classes (e.g. ExampleRunner) are for running one slice from the IDE and are NOT
+// Per-area *Runner classes (e.g. BookingRunner) are for running one slice from the IDE and are NOT
 // picked up by `mvn test` (Surefire only includes *Test.java).
 class ApiTest {
 
