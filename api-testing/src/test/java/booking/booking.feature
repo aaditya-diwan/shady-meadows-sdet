@@ -4,45 +4,48 @@ Feature: Booking
     * url baseUrl
     * def bookingSchema = read('booking-schema.json')
     * def auth = callonce read('classpath:auth/login.feature')
-    * def room = callonce read('classpath:rooms/find-room.feature')
+    # Auth is cookie-based: /auth/login returns the token in the body, and the API only
+    # honours it as "Cookie: token=<value>". Authorization: Bearer is rejected (401).
+    * configure cookies = { token: '#(auth.token)' }
+    # Every scenario books its own throwaway room, so bookings never clash with scenarios
+    # running in parallel or with other users of the shared demo site.
+    * def room = call read('classpath:rooms/create-room.feature') { token: '#(auth.token)' }
     * def roomId = room.roomId
-    // Auth is cookie-based: /auth/login returns the token in the body, and the API only
-    // honours it as "Cookie: token=<value>". Authorization: Bearer is rejected (401).
-    * configure cookies = { token: '#(auth.token)' } 
     * def createdBookingIds = []
-    * def bookingDates = 
+    * def futureDate =
       """
-      function(slot) {
-        // Each scenario books inside its own 30-day slot so scenarios running in parallel never overlap.
-        // The random start inside the slot avoids clashing with bookings left by other users of the shared site.
-        var dayMs = 24 * 60 * 60 * 1000;
-        var offsetDays = 60 + slot * 30 + Math.floor(Math.random() * 25);
-        var checkin = new Date(Date.now() + offsetDays * dayMs);
-        var checkout = new Date(checkin.getTime() + 2 * dayMs);
-        var iso = function(d) { return d.toISOString().slice(0, 10) };
-        return { checkin: iso(checkin), checkout: iso(checkout) };
+      function(daysFromNow) {
+        var d = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
+        return d.toISOString().slice(0, 10);
       }
       """
-      * configure afterScenario =
+    * def dates = { checkin: '#(futureDate(30))', checkout: '#(futureDate(32))' }
+    * configure afterScenario =
       """
       function() {
+        var token = karate.get('auth').token;
         var ids = karate.get('createdBookingIds');
         for (var i = 0; i < ids.length; i++) {
           try {
-            karate.call('classpath:booking/delete-booking.feature', { bookingId: ids[i], token: auth.token });
+            karate.call('classpath:booking/delete-booking.feature', { bookingId: ids[i], token: token });
           } catch (e) {
             karate.log('cleanup of booking', ids[i], 'failed:', e);
           }
+        }
+        // deleting a room does not delete its bookings, so the room goes last
+        var roomId = karate.get('room').roomId;
+        try {
+          karate.call('classpath:rooms/delete-room.feature', { roomId: roomId, token: token });
+        } catch (e) {
+          karate.log('cleanup of room', roomId, 'failed:', e);
         }
       }
       """
 
   @smoke
   Scenario: A booking is created for a valid room and can be read back
-    * def dates = bookingDates(0)
     * def booking = read('booking-request.json')
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request booking
     When method post
     Then status 201
@@ -60,10 +63,48 @@ Feature: Booking
     And match response contains booking
     And match response.bookingid == bookingId
 
-  Scenario: A deleted booking can no longer be read
-    * def dates = bookingDates(1)
+  Scenario: The admin can list the bookings for a room
     Given path 'booking'
-    And header Content-Type = 'application/json'
+    And request read('booking-request.json')
+    When method post
+    Then status 201
+    * def created = response
+    * createdBookingIds.push(created.bookingid)
+
+    Given path 'booking'
+    And param roomid = roomId
+    When method get
+    Then status 200
+    # the room is new, so its only booking is the one just created
+    And match response == { bookings: ['#(created)'] }
+
+  Scenario: A booking can be updated by the admin
+    Given path 'booking'
+    And request read('booking-request.json')
+    When method post
+    Then status 201
+    * def bookingId = response.bookingid
+    * createdBookingIds.push(bookingId)
+
+    * def dates = { checkin: '#(futureDate(40))', checkout: '#(futureDate(43))' }
+    * def update = read('booking-request.json')
+    * set update.firstname = 'Updated'
+    * set update.depositpaid = false
+    Given path 'booking', bookingId
+    And request update
+    When method put
+    Then status 200
+    And match response == { bookingid: '#(bookingId)', booking: '#(bookingSchema)' }
+    And match response.booking contains update
+
+    Given path 'booking', bookingId
+    When method get
+    Then status 200
+    # the stored booking must reflect the update
+    And match response contains update
+
+  Scenario: A deleted booking can no longer be read
+    Given path 'booking'
     And request read('booking-request.json')
     When method post
     Then status 201
@@ -79,21 +120,19 @@ Feature: Booking
     Then status 404
 
   Scenario: A room cannot be double-booked for the same dates
-    * def dates = bookingDates(2)
     * def booking = read('booking-request.json')
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request booking
     When method post
     Then status 201
     * createdBookingIds.push(response.bookingid)
 
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request booking
     When method post
     * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
     Then status 409
+
   Scenario: Bookings cannot be read without the admin token
     * configure cookies = null
     Given path 'booking'
@@ -102,29 +141,72 @@ Feature: Booking
     # reading bookings without a token must be refused
     * match [401, 403] contains responseStatus
 
-  Scenario Outline: A booking with first name '<firstname>' and last name '<lastname>' returns <expectedStatus>
-    * def dates = bookingDates(slot)
+  Scenario: A booking cannot be updated or deleted without the admin token
+    Given path 'booking'
+    And request read('booking-request.json')
+    When method post
+    Then status 201
+    * def original = response
+    * createdBookingIds.push(original.bookingid)
+
+    * configure cookies = null
+    * def update = read('booking-request.json')
+    * set update.firstname = 'Intruder'
+    Given path 'booking', original.bookingid
+    And request update
+    When method put
+    # updating without a token must be refused
+    * match [401, 403] contains responseStatus
+
+    Given path 'booking', original.bookingid
+    When method delete
+    # deleting without a token must be refused
+    * match [401, 403] contains responseStatus
+
+    * configure cookies = { token: '#(auth.token)' }
+    Given path 'booking', original.bookingid
+    When method get
+    Then status 200
+    # the booking must be untouched
+    And match response == original
+
+  Scenario Outline: A booking with first name '<firstname>' and last name '<lastname>' is accepted
     * def booking = read('booking-request.json')
     * set booking.firstname = firstname
     * set booking.lastname = lastname
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request booking
     When method post
     * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
-    Then match responseStatus == expectedStatus
+    Then status 201
 
-    # names must be 3-18 characters (first) and 3-30 characters (last)
+    # names must be 3-18 characters (first) and 3-30 characters (last): these sit on the boundaries
     Examples:
-      | firstname           | lastname                        | expectedStatus! | slot! |
-      | Ab                  | Tester                          | 400             | 3     |
-      | Abc                 | Tester                          | 201             | 4     |
-      | Abcdefghijklmnopqr  | Tester                          | 201             | 5     |
-      | Abcdefghijklmnopqrs | Tester                          | 400             | 6     |
-      | Karate              | Ab                              | 400             | 7     |
-      | Karate              | Abc                             | 201             | 8     |
-      | Karate              | Abcdefghijklmnopqrstuvwxyzabcd  | 201             | 9     |
-      | Karate              | Abcdefghijklmnopqrstuvwxyzabcde | 400             | 10    |
+      | firstname          | lastname                       |
+      | Abc                | Tester                         |
+      | Abcdefghijklmnopqr | Tester                         |
+      | Karate             | Abc                            |
+      | Karate             | Abcdefghijklmnopqrstuvwxyzabcd |
+
+  Scenario Outline: A booking with first name '<firstname>' and last name '<lastname>' is rejected with '<error>'
+    * def booking = read('booking-request.json')
+    * set booking.firstname = firstname
+    * set booking.lastname = lastname
+    Given path 'booking'
+    And request booking
+    When method post
+    * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
+    Then status 400
+    # the error must name the broken rule, so a 400 for some other reason does not pass
+    And match response == { errors: ['#(error)'] }
+
+    # names must be 3-18 characters (first) and 3-30 characters (last): these sit just outside
+    Examples:
+      | firstname           | lastname                        | error                         |
+      | Ab                  | Tester                          | size must be between 3 and 18 |
+      | Abcdefghijklmnopqrs | Tester                          | size must be between 3 and 18 |
+      | Karate              | Ab                              | size must be between 3 and 30 |
+      | Karate              | Abcdefghijklmnopqrstuvwxyzabcde | size must be between 3 and 30 |
 
   # ---------------------------------------------------------------------------------------------
   # Known bugs: each scenario asserts the correct behaviour and fails until the API is fixed.
@@ -136,7 +218,6 @@ Feature: Booking
     * def booking = read('booking-request.json')
     * remove booking.bookingdates
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request booking
     When method post
     * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
@@ -150,7 +231,6 @@ Feature: Booking
   Scenario: A check-in date in the past is rejected (actual: 201 Created)
     * def dates = { checkin: '2020-01-10', checkout: '2020-01-12' }
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request read('booking-request.json')
     When method post
     * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
@@ -159,9 +239,7 @@ Feature: Booking
   @knownbug
   Scenario: A booking for a room that does not exist is rejected (actual: 201 Created)
     * def roomId = 999999
-    * def dates = bookingDates(11)
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request read('booking-request.json')
     When method post
     * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
@@ -170,10 +248,8 @@ Feature: Booking
 
   @knownbug
   Scenario: Check-out before check-in is a validation error (actual: 409 Conflict)
-    * def dates = bookingDates(12)
-    * def dates = { checkin: '#(dates.checkout)', checkout: '#(dates.checkin)' }
+    * def dates = { checkin: '#(futureDate(32))', checkout: '#(futureDate(30))' }
     Given path 'booking'
-    And header Content-Type = 'application/json'
     And request read('booking-request.json')
     When method post
     * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
