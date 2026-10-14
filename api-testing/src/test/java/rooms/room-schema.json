@@ -1,0 +1,11 @@
+{
+    "roomid": "#number",
+    "roomName": "#string",
+    "type": "#regex (Single|Twin|Double|Family|Suite)",
+    "accessible": "#boolean",
+    "image": "#string",
+    "description": "#string",
+    "features": "#[] #string",
+    "roomPrice": "#number? _ >= 0"
+  }
+  
