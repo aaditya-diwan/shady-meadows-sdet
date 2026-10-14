@@ -1,0 +1,8 @@
+{
+    "roomid": "#(roomId)",
+    "firstname": "Aaditya",
+    "lastname": "Test",
+    "depositpaid": true,
+    "bookingdates": "#(dates)"
+  }
+  
