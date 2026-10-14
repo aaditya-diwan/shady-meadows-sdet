@@ -1,0 +1,697 @@
+{
+  "info": {
+    "_postman_id": "44185efb-26e2-484f-8083-0a58fd7f6006",
+    "name": "Shady Meadows BB",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "10246997"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://automationintesting.online/api" },
+    { "key": "adminUser", "value": "admin" },
+    { "key": "adminPassword", "value": "password" }
+  ],
+  "item": [
+    {
+      "name": "Initial Recon",
+      "item": [
+        {
+          "name": "Booking",
+          "item": [
+            {
+              "name": "Booking",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Cookie",
+                    "value": "token={{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/booking?roomid=2",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "booking"
+                  ],
+                  "query": [
+                    {
+                      "key": "roomid",
+                      "value": "2"
+                    },
+                    {
+                      "key": "",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Booking Missing Dates",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"roomid\":1,\"firstname\":\"Karate\",\"lastname\":\"Tester\",\"depositpaid\":true}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/booking",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "booking"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Booking",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const checkin = new Date();\ncheckin.setDate(checkin.getDate() + 64);\n\nconst checkout = new Date();\ncheckout.setDate(checkout.getDate() + 66);\n\nconst formatDate = (d) => d.toISOString().split('T')[0];\n\npm.environment.set('checkin', formatDate(checkin));\npm.environment.set('checkout', formatDate(checkout));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Recon only: room 999999 does not exist, yet the API wrongly books it (201).\n// Self-clean the stray booking so nothing is left on the shared demo site.\ntry {\n  const resp = pm.response.json();\n  const id = resp && resp.bookingid;\n  if (typeof id === \"number\") {\n    pm.sendRequest({ url: pm.variables.get(\"baseUrl\") + \"/auth/login\", method: \"POST\", header: { \"Content-Type\": \"application/json\" }, body: { mode: \"raw\", raw: JSON.stringify({ username: pm.variables.get(\"adminUser\"), password: pm.variables.get(\"adminPassword\") }) } }, (e, r) => {\n      if (e || !r) return;\n      pm.sendRequest({ url: pm.variables.get(\"baseUrl\") + \"/booking/\" + id, method: \"DELETE\", header: { Cookie: \"token=\" + r.json().token } }, () => {});\n    });\n  }\n} catch (e) {}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"roomid\": 999999,\n    \"firstname\": \"Karate\",\n    \"lastname\": \"Tester\",\n    \"depositpaid\": true,\n    \"bookingdates\": {\n        \"checkin\": \"{{checkin}}\",\n        \"checkout\": \"{{checkout}}\"\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/booking",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "booking"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Room",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/room",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "room"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Branding",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Brand Name is correct\", () => {\r\n    pm.expect(pm.response.json().name).to.eql(\"Shady Meadows B&B\")\r\n})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/branding",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "branding"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"admin\",\r\n    \"password\": \"password\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Validate",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"token\": \"{{token}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "validate"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Room To Booking(Happy Path)",
+      "item": [
+        {
+          "name": "Get Rooms",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));\r\n\r\nconst rooms = pm.response.json().rooms;\r\npm.test(\"rooms is an array with a priced room\", () => {\r\n  pm.expect(rooms).to.be.an(\"array\").that.is.not.empty;\r\n  pm.expect(rooms.some(r => r.roomPrice > 0)).to.be.true;\r\n});\r\n\r\npm.environment.set(\"roomId\", rooms.find(r => r.roomPrice > 0).roomid);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/room",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "room"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 Created\", () => pm.response.to.have.status(201));\r\n\r\nconst b = pm.response.json();\r\npm.test(\"booking matches what we sent\", () => {\r\n  pm.expect(b.bookingid).to.be.a(\"number\");\r\n  pm.expect(b.roomid).to.eql(Number(pm.environment.get(\"roomId\")));\r\n  pm.expect(b.firstname).to.eql(\"Aadi\");\r\n  pm.expect(b.depositpaid).to.be.true;\r\n  pm.expect(b.bookingdates.checkin).to.eql(pm.environment.get(\"checkin\"));\r\n  pm.expect(b.bookingdates.checkout).to.eql(pm.environment.get(\"checkout\"));\r\n});\r\n\r\npm.environment.set(\"bookingId\", b.bookingid);"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();\r\nd.setDate(d.getDate() + 30 + Math.floor(Math.random() * 300));\r\npm.environment.set(\"checkin\", d.toISOString().slice(0, 10));\r\nd.setDate(d.getDate() + 2);\r\npm.environment.set(\"checkout\", d.toISOString().slice(0, 10));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"roomid\": {{roomId}},\r\n  \"firstname\": \"Aadi\",\r\n  \"lastname\": \"Doe\",\r\n  \"depositpaid\": true,\r\n  \"bookingdates\": {\r\n    \"checkin\": \"{{checkin}}\",\r\n    \"checkout\": \"{{checkout}}\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Booking Validation Issue(Negative Path)",
+      "item": [
+        {
+          "name": "(BUG) Missing Dates give 500",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"missing bookingdates is a 400 validation error, not a 500\", () => {\r\n  pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"validation fails fast (under 2s)\", () => {\r\n  pm.expect(pm.response.responseTime).to.be.below(2000);\r\n});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"roomid\": {{roomId}},\r\n  \"firstname\": \"Testy\",\r\n  \"lastname\": \"McTest\",\r\n  \"depositpaid\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Name Validation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"400 Bad Request\", () => pm.response.to.have.status(400));\r\n\r\npm.test(\"explains the firstname length rule\", () => {\r\n  pm.expect(pm.response.json().errors).to.include(\"size must be between 3 and 18\");\r\n});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();\r\nd.setDate(d.getDate() + 30 + Math.floor(Math.random() * 300));\r\npm.environment.set(\"checkin\", d.toISOString().slice(0, 10));\r\nd.setDate(d.getDate() + 2);\r\npm.environment.set(\"checkout\", d.toISOString().slice(0, 10));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"roomid\": {{roomId}},\r\n  \"firstname\": \"Aa\",\r\n  \"lastname\": \"Doe\",\r\n  \"depositpaid\": false,\r\n  \"bookingdates\": {\r\n    \"checkin\": \"{{checkin}}\",\r\n    \"checkout\": \"{{checkout}}\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "(BUG) Non existent Room Gets Accepted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"non-existent room should be rejected (4xx)\", () => {\r\n  pm.expect(pm.response.code, \"expected 400/404 for a room that does not exist\")\r\n    .to.be.oneOf([400, 404]);\r\n});\r\n\r\n// Known bug: the API wrongly returns 201 and books a room that does not exist.\r\n// Self-clean the stray booking so the shared site is left untouched (do NOT overwrite bookingId).\r\ntry {\r\n  const resp = pm.response.json();\r\n  const id = resp && resp.bookingid;\r\n  if (typeof id === \"number\") {\r\n    pm.sendRequest({ url: pm.variables.get(\"baseUrl\") + \"/auth/login\", method: \"POST\", header: { \"Content-Type\": \"application/json\" }, body: { mode: \"raw\", raw: JSON.stringify({ username: pm.variables.get(\"adminUser\"), password: pm.variables.get(\"adminPassword\") }) } }, (e, r) => {\r\n      if (e || !r) return;\r\n      pm.sendRequest({ url: pm.variables.get(\"baseUrl\") + \"/booking/\" + id, method: \"DELETE\", header: { Cookie: \"token=\" + r.json().token } }, () => {});\r\n    });\r\n  }\r\n} catch (e) {}"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();\r\nd.setDate(d.getDate() + 30 + Math.floor(Math.random() * 300));\r\npm.environment.set(\"checkin\", d.toISOString().slice(0, 10));\r\nd.setDate(d.getDate() + 2);\r\npm.environment.set(\"checkout\", d.toISOString().slice(0, 10));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"roomid\": 188,\r\n  \"firstname\": \"Aadi\",\r\n  \"lastname\": \"Doe\",\r\n  \"depositpaid\": true,\r\n  \"bookingdates\": {\r\n    \"checkin\": \"{{checkin}}\",\r\n    \"checkout\": \"{{checkout}}\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "(BUG) Past dates result in booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"past dates should be rejected (400), not booked\", () => pm.response.to.have.status(400));\r\n\r\n// Known bug: the API wrongly returns 201 and books dates in the past. Self-clean the stray booking.\r\ntry {\r\n  const resp = pm.response.json();\r\n  const id = resp && resp.bookingid;\r\n  if (typeof id === \"number\") {\r\n    pm.sendRequest({ url: pm.variables.get(\"baseUrl\") + \"/auth/login\", method: \"POST\", header: { \"Content-Type\": \"application/json\" }, body: { mode: \"raw\", raw: JSON.stringify({ username: pm.variables.get(\"adminUser\"), password: pm.variables.get(\"adminPassword\") }) } }, (e, r) => {\r\n      if (e || !r) return;\r\n      pm.sendRequest({ url: pm.variables.get(\"baseUrl\") + \"/booking/\" + id, method: \"DELETE\", header: { Cookie: \"token=\" + r.json().token } }, () => {});\r\n    });\r\n  }\r\n} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"bookingdates\": {\r\n        \"checkin\": \"2026-09-08\",\r\n        \"checkout\": \"2026-09-10\"\r\n    },\r\n    \"depositpaid\": false,\r\n    \"firstname\": \"Aadi\",\r\n    \"lastname\": \"Dope\",\r\n    \"roomid\": {{roomId}}\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "(BUG) Checkout before Checkin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Invalid range (checkout before checkin) must be rejected, not booked.\r\n// The API rejects it with 409 Conflict; a 400 Bad Request would be the clearer code.\r\npm.test(\"invalid date range is rejected, not booked\", () => {\r\n  pm.expect(pm.response.code).to.be.oneOf([400, 409]);\r\n});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();\r\nd.setDate(d.getDate() + 30 + Math.floor(Math.random() * 300));\r\npm.environment.set(\"checkin\", d.toISOString().slice(0, 10));\r\nd.setDate(d.getDate() + 2);\r\npm.environment.set(\"checkout\", d.toISOString().slice(0, 10));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"roomid\": {{roomId}},\r\n  \"firstname\": \"Aadi\",\r\n  \"lastname\": \"Doe\",\r\n  \"depositpaid\": false,\r\n  \"bookingdates\": {\r\n    \"checkin\": \"{{checkout}}\",\r\n    \"checkout\": \"{{checkin}}\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "Admin login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));\n\nconst token = pm.response.json().token;\npm.test(\"returns a token\", () => pm.expect(token).to.be.a(\"string\").and.not.be.empty);\n\npm.environment.set(\"token\", token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUser}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get booking with token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));\n\npm.test(\"it is the booking we created\", () => {\n  const b = pm.response.json();\n  pm.expect(b.bookingid).to.eql(Number(pm.environment.get(\"bookingId\")));\n  pm.expect(b.lastname).to.eql(\"Doe\");\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "token={{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"202 Accepted\", () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "token={{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Booking is gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"404 Not Found\", () => pm.response.to.have.status(404));\n\npm.environment.unset(\"bookingId\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "token={{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
