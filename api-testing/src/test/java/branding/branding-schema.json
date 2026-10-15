@@ -1,23 +1,22 @@
 {
-    "name": "#string",
-    "logoUrl": "#string",
-    "description": "#string? _.length > 0",
-    "directions": "#string? _.length > 0",
+    "name": "#string? _.length >= 3 && _.length <= 100",
+    "logoUrl": "#string? _.length >= 1",
+    "description": "#string? _.length >= 3 && _.length <= 500",
+    "directions": "#string? _.length >= 1",
     "map": {
-      "latitude": "#number? _ >= -90 && _ <= 90",
-      "longitude": "#number? _ >= -180 && _ <= 180"
+      "latitude": "#number",
+      "longitude": "#number"
     },
     "address": {
-      "line1": "#string",
-      "line2": "##string",
-      "postTown": "#string",
-      "county": "##string",
-      "postCode": "#string"
+      "line1": "#string? _.length >= 1",
+      "line2": "#string? _.length >= 1",
+      "postTown": "#string? _.length >= 1",
+      "county": "#string? _.length >= 1",
+      "postCode": "#string? _.length >= 1"
     },
     "contact": {
-      "name": "#string",
-      "email": "#string",
-      "phone": "#string"
+      "name": "#string? _.length >= 3 && _.length <= 40",
+      "email": "#string? _.length >= 1",
+      "phone": "#string? _.length >= 1"
     }
   }
-  

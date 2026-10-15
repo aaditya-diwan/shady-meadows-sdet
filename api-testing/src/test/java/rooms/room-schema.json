@@ -1,11 +1,10 @@
 {
-    "roomid": "#number",
-    "roomName": "#string",
-    "type": "#regex (Single|Twin|Double|Family|Suite)",
-    "accessible": "#boolean",
-    "image": "#string",
-    "description": "#string",
-    "features": "#array",
-    "roomPrice": "#number? _ >= 0"
+    "roomName": "#string? _.length >= 1",
+    "type": "#regex (Single|Double|Twin|Family|Suite)",
+    "roomid": "##number",
+    "accessible": "##boolean",
+    "image": "##string",
+    "description": "##string",
+    "features": "##array",
+    "roomPrice": "##number? _ >= 1 && _ <= 999"
   }
-  

@@ -1,8 +1,8 @@
 {
   "bookingid": "#number",
-  "roomid": "#number",
-  "firstname": "#string",
-  "lastname": "#string",
+  "roomid": "#number? _ >= 1",
+  "firstname": "#string? _.length >= 3 && _.length <= 18",
+  "lastname": "#string? _.length >= 3 && _.length <= 30",
   "depositpaid": "#boolean",
   "bookingdates": {
     "checkin": "#regex \\d{4}-\\d{2}-\\d{2}",
