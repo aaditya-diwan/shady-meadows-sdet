@@ -5,7 +5,7 @@
     "accessible": "#boolean",
     "image": "#string",
     "description": "#string",
-    "features": "#[] #string",
+    "features": "#array",
     "roomPrice": "#number? _ >= 0"
   }
   

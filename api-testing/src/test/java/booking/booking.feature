@@ -1,9 +1,9 @@
 @booking
-@parallel=false
+@lock=booking
 Feature: Booking
   # Scenarios book an existing room from the live inventory (nothing is created on the shared
-  # demo site). They run serially and on random future dates so they never clash with each
-  # other on the same room + dates (which the API rejects with 409).
+  # demo site). @lock=booking serialises them (Karate 2.x replacement for @parallel=false) and
+  # random future dates keep them from clashing on the same room + dates (which the API 409s).
 
   Background:
     * url baseUrl
