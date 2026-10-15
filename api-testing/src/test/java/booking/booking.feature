@@ -215,3 +215,15 @@ Feature: Booking
     When method post
     * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
     Then status 400
+
+  @knownbug
+  Scenario: A booking without the required email and phone is rejected (actual: 201 Created)
+    # OpenAPI marks email and phone as required in the POST /booking request body, but the API
+    # accepts a booking that omits them. (frontend validates this but the api does not)
+    * def booking = read('booking-request.json')
+    Given path 'booking'
+    And request booking
+    When method post
+    * if (responseStatus == 201) createdBookingIds.push(response.bookingid)
+    # email and phone are required inputs, so omitting them must be a 400 validation error
+    Then status 400

@@ -124,14 +124,29 @@ Traces are captured on first retry and screenshots on failure.
 
 ### Postman (bonus)
 
-Requires the **Postman CLI**. The collection carries its own variables, so no environment file is needed.
+Requires the **Postman CLI**. The collection carries its own variables, so no environment file is needed
+(the CLI keeps an in-memory environment for the duration of a run, so the response → variable →
+next-request chaining works headless).
+
+**Pass/fail gate** — run only the deterministic folders (the happy-path booking chain plus cleanup),
+which must stay green. The CLI exits non-zero if any assertion fails, so this command's exit code is the
+gate:
 
 ```bash
-postman collection run "postman/Shady Meadows BB.postman_collection.json"
+postman collection run "postman/Shady Meadows BB.postman_collection.json" -i "Room To Booking(Happy Path)" -i "Cleanup"
 ```
 
-The CLI exits non-zero if any assertion fails, so the exit code is the gate. Requests that create data
-self-clean; the known-bug requests assert the correct behaviour and are expected to fail.
+The two folders run in order, so `Create Booking` sets `bookingId` and `Cleanup` deletes it — nothing is
+left on the shared site.
+
+**Known-bug requests (informational, kept out of the gate).** The `(BUG) …` requests in *Booking
+Validation Issue (Negative Path)* assert the *correct* behaviour, so they fail against the current API by
+design — the same bugs-as-tests approach used in Karate and Playwright. Running the whole collection
+therefore exits non-zero on purpose; run that folder separately to track when a bug gets fixed:
+
+```bash
+postman collection run "postman/Shady Meadows BB.postman_collection.json" -i "Booking Validation Issue(Negative Path)"
+```
 
 ---
 
@@ -140,7 +155,7 @@ self-clean; the known-bug requests assert the correct behaviour and are expected
 ## Bugs found
 
 A curated set of the most interesting defects (all verified against the live site). Each is also encoded as
-a `@knownbug` test — **four in Karate, three in Playwright** — that asserts the correct behaviour.
+a `@knownbug` test — **five in Karate, three in Playwright** — that asserts the correct behaviour.
 
 
 | #   | Area | Severity   | Bug                                                                                                                                           | How to reproduce                                                                        |
@@ -151,11 +166,11 @@ a `@knownbug` test — **four in Karate, three in Playwright** — that asserts 
 | 4   | API  | Medium     | A booking with **check-in dates in the past** is accepted (**201**) instead of rejected                                                       | `POST /api/booking` with past `checkin`/`checkout`                                      |
 | 5   | UI   | Low        | The **Logout button is shown to logged-out visitors** — so its presence isn't proof of being signed in                                        | Open `/admin` while signed out; Logout appears in the navbar                            |
 | 6   | UI   | Low (a11y) | Every **room image has** `alt="Single Room"` regardless of type, and the Message field's label targets a non-existent id (no accessible name) | Inspect a Double/Suite room image's `alt`; inspect the contact Message textarea's label |
+| 7   | API  | Medium     | `email` and `phone` are **required by the spec and enforced by the booking form, but not by the API** — a direct request that omits them is accepted (**201**). Client-side-only validation: anything bypassing the UI (curl, Postman, an integration) skips it | `POST /api/booking` with a valid body but no `email`/`phone` |
 
 
 Additional minor inconsistencies are also documented as tests — e.g. unauthenticated reads return **403** on
-`/api/booking/{id}` but **401** on `/api/booking?roomid=`, and the OpenAPI spec's `required` fields don't match
-the API's actual validation.
+`/api/booking/{id}` but **401** on `/api/booking?roomid=`.
 
 ---
 
